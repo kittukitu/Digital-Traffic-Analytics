@@ -1,64 +1,124 @@
-import argparse
-import google.generativeai as genai
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from datetime import timedelta
 
-# 🔑 Configure Gemini
-genai.configure(api_key="AIzaSyC2EVCSgC-DRWVunkKi7Ro0J1upoN3UglE")
-model = genai.GenerativeModel("gemini-1.5-flash")
+# --- Step 1: Generate synthetic website traffic data (daily sessions) ---
+np.random.seed(42)
+days = 730  # Two years
+dates = pd.date_range(start="2023-01-01", periods=days, freq='D')
 
-def predict_traffic(current_visitors, bounce_rate, avg_session_duration, marketing_score):
+# Simulate traffic with weekly seasonality + yearly trend + random noise
+base_traffic = 1000 + np.linspace(0, 500, days)  # growing trend
+weekly_seasonality = 200 * np.where(dates.dayofweek < 5, 1, 0.5)  # weekdays have 2x traffic than weekends
+yearly_seasonality = 150 * np.sin(2 * np.pi * dates.dayofyear / 365)
+random_noise = np.random.normal(0, 50, days)
+
+sessions = base_traffic + weekly_seasonality + yearly_seasonality + random_noise
+sessions = np.maximum(0, sessions).astype(int)
+
+# Additional features
+avg_session_duration = 5 + 2 * np.sin(2 * np.pi * dates.dayofyear / 365) + np.random.normal(0, 0.5, days)
+bounce_rate = np.clip(0.4 - 0.1 * np.sin(2 * np.pi * dates.dayofweek / 7) + np.random.normal(0, 0.05, days), 0, 1)
+conversion_rate = np.clip(0.05 + 0.01 * np.cos(2 * np.pi * dates.dayofyear / 365) + np.random.normal(0, 0.005, days), 0, 1)
+
+data = pd.DataFrame({
+    'date': dates,
+    'sessions': sessions,
+    'avg_session_duration_min': avg_session_duration,
+    'bounce_rate': bounce_rate,
+    'conversion_rate': conversion_rate
+})
+
+data.to_csv("synthetic_website_traffic.csv", index=False)
+print("Synthetic website traffic dataset saved as 'synthetic_website_traffic.csv'.")
+
+# --- Prepare timeseries ---
+ts = data.set_index('date')['sessions']
+ts.index.freq = 'D'  # Set frequency to suppress warnings
+
+# --- User inputs ---
+while True:
     try:
-        # Simple predictive formula (can replace with ML model later)
-        predicted_visitors = current_visitors * (1 + marketing_score*0.3 - bounce_rate*0.5)
-        engagement_score = avg_session_duration / 300  # normalize assuming 5 min avg session
-        traffic_quality = "High" if engagement_score > 0.6 else "Medium" if engagement_score > 0.3 else "Low"
+        start_forecast_str = input(f"Enter forecast start date (YYYY-MM-DD) between {ts.index.min().date()} and {ts.index.max().date()}: ")
+        forecast_start_date = pd.to_datetime(start_forecast_str)
+        if forecast_start_date < ts.index.min() or forecast_start_date > ts.index.max():
+            print("Date out of range. Try again.")
+            continue
+        break
+    except Exception:
+        print("Invalid date format. Try again.")
 
-        prompt = f"""
-        You are a Digital Traffic Analytics AI.
-        Given the following inputs:
+while True:
+    try:
+        forecast_days = int(input("Enter number of days to forecast (e.g., 30): "))
+        if forecast_days <= 0:
+            print("Must be positive number.")
+            continue
+        break
+    except Exception:
+        print("Invalid number. Try again.")
 
-        - Current Visitors: {current_visitors}
-        - Bounce Rate: {bounce_rate}
-        - Avg. Session Duration (seconds): {avg_session_duration}
-        - Marketing Score (0-1): {marketing_score}
-        - Predicted Visitors: {predicted_visitors:.2f}
-        - Engagement Score: {engagement_score:.2f} ({traffic_quality})
+# Optional marketing campaign intensity input (0 to 2 scale)
+while True:
+    try:
+        marketing_intensity = float(input("Enter marketing campaign intensity (0 - 2, where 1 is normal): "))
+        if not (0 <= marketing_intensity <= 2):
+            print("Must be between 0 and 2.")
+            continue
+        break
+    except Exception:
+        print("Invalid input. Try again.")
 
-        Provide:
-        1. A strategy to improve website traffic and user engagement.
-        2. A professional explanation why this strategy works.
-        """
+# --- Adjust traffic based on marketing intensity ---
+ts_adjusted = ts.copy()
+if marketing_intensity != 1.0:
+    ts_adjusted.loc[forecast_start_date:] = ts_adjusted.loc[forecast_start_date:] * marketing_intensity
+    ts_adjusted = ts_adjusted.astype(int)
 
-        response = model.generate_content(prompt)
-        ai_text = response.text if response else "❌ No response from AI"
+# Subset timeseries for modeling
+ts_sub = ts_adjusted.loc[:forecast_start_date]
+ts_sub.index.freq = 'D'
 
-        parts = ai_text.split("\n", 1)
-        strategy = parts[0].strip() if parts else "Not generated"
-        explanation = parts[1].strip() if len(parts) > 1 else ai_text
+# --- Forecast using Holt-Winters ---
+model = ExponentialSmoothing(ts_sub, trend='add', seasonal='add', seasonal_periods=7)
+fit = model.fit()
 
-        print("\n📊 Traffic Prediction Results")
-        print(f"Predicted Visitors: {predicted_visitors:.2f}")
-        print(f"Engagement Score: {engagement_score:.2f}")
-        print(f"Traffic Quality: {traffic_quality}")
-        print(f"Suggested Strategy: {strategy}")
-        print("\nAI Explanation:")
-        print(explanation)
+forecast = fit.forecast(forecast_days)
+forecast_dates = pd.date_range(ts_sub.index[-1] + timedelta(days=1), periods=forecast_days)
 
-    except Exception as e:
-        print(f"❌ Error: {e}")
+# --- Behavior insights and marketing recommendations ---
+avg_forecast = forecast.mean()
+if avg_forecast > 2500:
+    marketing_rec = "Increase ad spend and server capacity to handle high traffic."
+elif avg_forecast > 1500:
+    marketing_rec = "Maintain current marketing budget; monitor peak times."
+else:
+    marketing_rec = "Consider campaigns to boost traffic during low volume periods."
 
+print("\nForecasted sessions for the next", forecast_days, "days:")
+print(pd.DataFrame({'date': forecast_dates, 'predicted_sessions': forecast.values}))
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Digital Traffic Analytics AI (Terminal Version)")
-    parser.add_argument("--current_visitors", type=float, help="Current number of website visitors")
-    parser.add_argument("--bounce_rate", type=float, help="Bounce rate (0-1)")
-    parser.add_argument("--avg_session_duration", type=float, help="Average session duration in seconds")
-    parser.add_argument("--marketing_score", type=float, help="Marketing effectiveness score (0-1)")
+print(f"\nMarketing Recommendation: {marketing_rec}")
 
-    args = parser.parse_args()
+# --- Visualizations ---
+plt.figure(figsize=(14,6))
+plt.plot(ts.index, ts, label='Historical Sessions')
+plt.plot(forecast_dates, forecast, 'r--', label='Forecast')
+plt.title('Website Traffic (Sessions) Forecast')
+plt.xlabel('Date')
+plt.ylabel('Sessions')
+plt.legend()
+plt.tight_layout()
+plt.show()
 
-    current_visitors = args.current_visitors if args.current_visitors is not None else float(input("Enter Current Visitors: "))
-    bounce_rate = args.bounce_rate if args.bounce_rate is not None else float(input("Enter Bounce Rate (0-1): "))
-    avg_session_duration = args.avg_session_duration if args.avg_session_duration is not None else float(input("Enter Avg. Session Duration (seconds): "))
-    marketing_score = args.marketing_score if args.marketing_score is not None else float(input("Enter Marketing Score (0-1): "))
-
-    predict_traffic(current_visitors, bounce_rate, avg_session_duration, marketing_score)
+plt.figure(figsize=(10,7))
+sns.lineplot(data=data, x='date', y='avg_session_duration_min', label='Avg Session Duration (min)')
+sns.lineplot(data=data, x='date', y='bounce_rate', label='Bounce Rate')
+sns.lineplot(data=data, x='date', y='conversion_rate', label='Conversion Rate')
+plt.title('Website Behavior Metrics Over Time')
+plt.legend()
+plt.tight_layout()
+plt.show()

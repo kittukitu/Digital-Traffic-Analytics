@@ -1,82 +1,82 @@
-# 📊 Digital Traffic Analytics AI
+Website Traffic Forecasting and Marketing Insights
+This project generates synthetic daily website traffic data with behavioral metrics and applies Holt-Winters exponential smoothing to forecast future sessions. It incorporates user inputs to tailor forecasts based on marketing campaign intensity and provides actionable marketing recommendations along with relevant visualizations.
 
-An AI-powered **website traffic prediction and strategy generator**.  
-This tool combines a simple traffic forecasting formula with **Gemini AI** to provide **data-driven marketing recommendations**.
+Features
+Synthetic website traffic data simulated over two years with:
 
----
+Daily sessions incorporating weekly and yearly seasonality,
 
-## 🚀 Features
-- Predicts **future visitors** based on:
-  - Current Visitors
-  - Bounce Rate
-  - Average Session Duration
-  - Marketing Effectiveness Score
-- Calculates an **Engagement Score**:
-  - High / Medium / Low traffic quality
-- AI-generated insights:
-  - Strategy to improve website traffic & engagement
-  - Professional explanation of why it works
-- CLI tool with **interactive mode** if no arguments are provided.
+Average session duration, bounce rate, and conversion rate metrics.
 
----
+User-specified forecast start date and forecast horizon.
 
-## 🛠 Installation
+Adjustment of traffic based on marketing campaign intensity (0 to 2 scale).
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/yourusername/digital-traffic-ai.git
-cd digital-traffic-ai
-2. Install Dependencies
-bash
-Copy code
-pip install google-generativeai argparse
-3. Configure API Key
-Open the script and replace with your Gemini API key:
+Time series forecasting of sessions using Holt-Winters exponential smoothing with weekly seasonality.
 
-python
-Copy code
-genai.configure(api_key="YOUR_GEMINI_API_KEY")
-📌 Usage
-CLI Mode
-Run with arguments:
+Marketing recommendations based on forecasted average traffic volume.
+
+Visualizations include:
+
+Historical and forecasted website sessions,
+
+Behavioral metrics trends over time (session duration, bounce rate, conversion rate).
+
+Requirements
+Python 3.x
+
+pandas
+
+numpy
+
+matplotlib
+
+seaborn
+
+statsmodels
+
+Install dependencies via:
 
 bash
-Copy code
-python traffic_ai.py \
-  --current_visitors 1200 \
-  --bounce_rate 0.35 \
-  --avg_session_duration 240 \
-  --marketing_score 0.7
-Interactive Mode
-If no arguments are given, it will prompt:
+pip install pandas numpy matplotlib seaborn statsmodels
+Usage
+Run the script
+A synthetic dataset synthetic_website_traffic.csv will be created containing simulated sessions and behavioral metrics.
 
-bash
-Copy code
-python traffic_ai.py
-mathematica
-Copy code
-Enter Current Visitors: 1000
-Enter Bounce Rate (0-1): 0.4
-Enter Avg. Session Duration (seconds): 200
-Enter Marketing Score (0-1): 0.6
-📊 Example Output
-yaml
-Copy code
-📊 Traffic Prediction Results
-Predicted Visitors: 1260.00
-Engagement Score: 0.67
-Traffic Quality: High
-Suggested Strategy: Optimize landing page design and invest more in targeted ads.
+User Inputs
 
-AI Explanation:
-A better landing page reduces bounce rate, while targeted ads bring quality visitors,
-boosting both engagement and conversion rates.
-🔮 Future Enhancements
-Replace the simple formula with ML models (RandomForest, XGBoost, etc.).
+Enter forecast start date in YYYY-MM-DD format within the dataset range.
 
-Add historical trend visualization using matplotlib.
+Enter the number of days to forecast (positive integer).
 
-Export AI strategy reports in CSV/Markdown/PDF.
+Enter marketing campaign intensity on a scale from 0 (no campaign) to 2 (double intensity), where 1 means normal intensity.
 
-Deploy as a Flask/Django web app dashboard.
+Outputs
 
+Tabular forecast of daily website sessions for the specified horizon.
+
+Marketing recommendations based on forecast traffic levels:
+
+High traffic: Increase ad spend and server capacity.
+
+Moderate traffic: Maintain current budget and monitor peaks.
+
+Low traffic: Consider campaigns to boost traffic.
+
+Plots visualizing:
+
+Historical and forecasted sessions,
+
+Behavioral metrics trends: average session duration, bounce rate, and conversion rate.
+
+Files
+synthetic_website_traffic.csv: Generated synthetic website traffic dataset.
+
+Python script: Generates data, accepts user input, runs forecast, and generates recommendations and visualizations.
+
+Notes
+Traffic adjustment by marketing intensity applies from forecast start date onward.
+
+Weekly seasonality is used in forecasting due to typical web traffic patterns.
+
+Visualizations require a graphical environment.
